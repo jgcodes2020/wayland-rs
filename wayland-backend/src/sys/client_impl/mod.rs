@@ -1,18 +1,10 @@
 //! Client-side implementation of a Wayland protocol backend using `libwayland`
 
 use std::{
-    collections::HashSet,
-    ffi::CStr,
-    os::raw::{c_int, c_void},
-    os::unix::io::{BorrowedFd, OwnedFd},
-    os::unix::{
-        io::{FromRawFd, IntoRawFd, RawFd},
-        net::UnixStream,
-    },
-    sync::{
+    collections::HashSet, ffi::{c_char, CStr}, mem, os::{raw::{c_int, c_void}, unix::{io::{BorrowedFd, FromRawFd, IntoRawFd, OwnedFd, RawFd}, net::UnixStream}}, ptr::null, sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex, MutexGuard, Weak,
-    },
+    }
 };
 
 use crate::{
@@ -144,6 +136,48 @@ impl InnerObjectId {
             self.ptr
         } else {
             std::ptr::null_mut()
+        }
+    }
+
+    pub fn set_tag(&self, tag: Option<&'static &'static CStr>) {
+        let tag_ptr = match tag {
+            None => null(),
+            Some(tag_ref) => unsafe {
+                // AFAIK, this is safe. What we start with is a pointer to a fat pointer.
+                // The first value in a fat pointer always points to the data, so
+                // this is effectively a pointer to a pointer to the data.
+                mem::transmute::<_, *const *const c_char>(tag_ref as *const &CStr)
+            }
+        };
+        let ptr = self.as_ptr();
+        if ptr.is_null() {
+            panic!("Attempted to set the tag of a dead object");
+        }
+
+        unsafe {
+            ffi_dispatch!(wayland_client_handle(), wl_proxy_set_tag, ptr, tag_ptr);
+        }
+    }
+    
+    pub fn tag(&self) -> Option<&'static CStr> {
+        let ptr = self.as_ptr();
+        if ptr.is_null() {
+            panic!("Attempted to getthe tag of a dead object");
+        }
+        
+        let tag_ptr = unsafe {
+            ffi_dispatch!(wayland_client_handle(), wl_proxy_get_tag, ptr)
+        };
+
+        unsafe {
+            // This can still segfault if a non-null, but invalid pointer is passed over
+            // from a C API not following the convention.
+            if tag_ptr.is_null() || (*tag_ptr).is_null() {
+                None
+            }
+            else {
+                Some(CStr::from_ptr(*tag_ptr))
+            }
         }
     }
 }

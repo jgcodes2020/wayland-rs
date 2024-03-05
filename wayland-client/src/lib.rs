@@ -167,11 +167,9 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 use std::{
-    fmt,
-    hash::{Hash, Hasher},
-    os::unix::io::{BorrowedFd, OwnedFd},
-    sync::Arc,
+    ffi::CStr, fmt, hash::{Hash, Hasher}, mem, os::unix::io::{BorrowedFd, OwnedFd}, ptr::{null}, sync::Arc
 };
+use rustix::ffi::c_char;
 use wayland_backend::{
     client::{InvalidId, ObjectData, ObjectId, WaylandError, WeakBackend},
     protocol::{Interface, Message},
@@ -219,6 +217,7 @@ pub mod protocol {
     }
     wayland_scanner::generate_client_code!("wayland.xml");
 }
+
 
 /// Trait representing a Wayland interface
 pub trait Proxy: Clone + std::fmt::Debug + Sized {
@@ -317,6 +316,14 @@ pub trait Proxy: Clone + std::fmt::Debug + Sized {
     /// to be sure to avoid reference cycles that would cause memory leaks.
     fn downgrade(&self) -> Weak<Self> {
         Weak { backend: self.backend().clone(), id: self.id(), _iface: std::marker::PhantomData }
+    }
+
+    fn tag(&self) -> Option<&'static CStr> {
+        self.id().tag()
+    }
+
+    fn set_tag(&self, tag: Option<&'static &'static CStr>) {
+        self.id().set_tag(tag);
     }
 }
 

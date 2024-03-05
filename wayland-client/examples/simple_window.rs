@@ -1,12 +1,10 @@
-use std::{fs::File, os::unix::prelude::AsFd};
+use std::{ffi::CStr, fs::File, os::unix::prelude::AsFd};
 
 use wayland_client::{
-    delegate_noop,
-    protocol::{
+    delegate_noop, protocol::{
         wl_buffer, wl_compositor, wl_keyboard, wl_registry, wl_seat, wl_shm, wl_shm_pool,
         wl_surface,
-    },
-    Connection, Dispatch, QueueHandle, WEnum,
+    }, Connection, Dispatch, Proxy, QueueHandle, WEnum
 };
 
 use wayland_protocols::xdg::shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base};
@@ -45,6 +43,8 @@ struct State {
     configured: bool,
 }
 
+static SURFACE_TAG: &CStr = unsafe { CStr::from_bytes_with_nul_unchecked(b"io.github.smithay.wayland-rs\0") };
+
 impl Dispatch<wl_registry::WlRegistry, ()> for State {
     fn event(
         state: &mut Self,
@@ -60,6 +60,7 @@ impl Dispatch<wl_registry::WlRegistry, ()> for State {
                     let compositor =
                         registry.bind::<wl_compositor::WlCompositor, _, _>(name, 1, qh, ());
                     let surface = compositor.create_surface(qh, ());
+                    surface.set_tag(Some(&SURFACE_TAG));
                     state.base_surface = Some(surface);
 
                     if state.wm_base.is_some() && state.xdg_surface.is_none() {

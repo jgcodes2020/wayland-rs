@@ -1,9 +1,5 @@
 use std::{
-    any::Any,
-    fmt,
-    os::unix::io::{BorrowedFd, OwnedFd},
-    os::unix::{io::RawFd, net::UnixStream},
-    sync::Arc,
+    any::Any, ffi::CStr, fmt, os::unix::{io::{BorrowedFd, OwnedFd, RawFd}, net::UnixStream}, sync::Arc
 };
 
 use crate::protocol::{Interface, Message, ObjectInfo};
@@ -122,6 +118,14 @@ impl ObjectId {
     #[inline]
     pub fn protocol_id(&self) -> u32 {
         self.id.protocol_id()
+    }
+
+    pub fn tag(&self) -> Option<&'static CStr> {
+        self.id.tag()
+    }
+
+    pub fn set_tag(&mut self, tag: Option<&'static &'static CStr>) {
+        self.id.set_tag(tag);
     }
 }
 
